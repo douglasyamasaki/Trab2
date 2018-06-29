@@ -14,18 +14,22 @@ typedef struct {
 	int tipo;
 }Inimigo;
 
-char **leituraArquivo(Personagem* player, Inimigo** inimigos) {
+char **leituraArquivo(Personagem* player, Inimigo* inimigos) {
 
 	int i, j, k = 0;
 	char aux;
 	inimigos = (Inimigo**)malloc(sizeof(Inimigo*) * 5);
 
-	
+
 
 	char **maze = (char**)malloc(sizeof(char*) * LINHAS);
 	for (i = 0; i<LINHAS; i++) {
 		maze[i] = (char*)malloc(sizeof(char)*COLUNAS);
 	}
+
+    for(i=0;i<LINHAS;i++)
+        for(j=0;j<COLUNAS;j++)
+        maze[i][j]=' ';
 
 	FILE *arquivo = fopen("arquivo.txt", "r");
 	if (arquivo == NULL) {
@@ -43,9 +47,9 @@ char **leituraArquivo(Personagem* player, Inimigo** inimigos) {
 			continue;
 		}
 		if (k == 1) {
-			inimigos[k]->x = i;
-			inimigos[k]->y = j;
-			inimigos[k]->tipo = 'A';
+			inimigos[0].x = i;
+			inimigos[0].y = j;
+			inimigos[0].tipo = 0;
 			k++;
 			continue;
 		}
@@ -54,14 +58,18 @@ char **leituraArquivo(Personagem* player, Inimigo** inimigos) {
 			k++;
 			break;
 		}
-		inimigos[k]->x = i;
-		inimigos[k]->y = j;
-		inimigos[k]->tipo = 'B';
+		inimigos[k-1].x = i;
+		inimigos[k-1].y = j;
+		inimigos[k-1].tipo = 1;
 		k++;
 	}
 
-	while (fscanf(arquivo, "%d %d %c", &i, &j, &aux) != EOF) {
-		maze[i][j] = aux;
+    char line [10];
+	while (fgets(line, 10, arquivo) != NULL){
+            fscanf(arquivo,"%d %d",&i,&j);
+            for (k=0;k<10;k++)
+                if(line[k]=='*')
+                maze[i][j]='*';
 	}
 
 	fclose(arquivo);
@@ -79,7 +87,7 @@ int main() {
 	printf("%d %d\n", player.x, player.y);
 	for (i = 0; i<5; i++)
 	{
-		printf("%d %d\n", &(inimigos[i].x), &(inimigos[i].y));
+		printf("%d %d\n", &(inimigos[i]).x,&(inimigos[i].y));
 	}
 	for (i = 0; i<LINHAS; i++)
 		for (j = 0; j<COLUNAS; j++)
