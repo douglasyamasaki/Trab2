@@ -1,0 +1,273 @@
+#include <allegro.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <allegro/mouse.h>
+#define LINES 20
+#define COLUMS 20
+///timer para controlar tempo de atualização da cena
+volatile int ticks = 0;
+
+void ticks_counter()
+{
+    ticks++;
+}
+END_OF_FUNCTION(tick_counter)
+
+///timer que controla a troca de frame dos sprites
+volatile int frame_update = 0;
+
+void frame_upadate_counter()
+{
+    frame_update++;
+}
+END_OF_FUNCTION(frame_upadate_counter)
+
+typedef struct personagem {
+    int x;
+    int y;
+    int armadilhas;
+    int isKilled;
+    int anima1;
+    int anima2;
+}Personagem;
+
+//exibe a matriz que representa o labirinto
+void printMaze(char mat[LINES][COLUMS])
+{
+    int i, j;
+
+    for(i = 0; i < LINES; i++)
+    {
+        for(j = 0; j < COLUMS; j++)
+        {
+            printf("%c", mat[i][j]);
+        }
+        printf("\n");
+    }
+}
+
+//Gera caminhos no labirinto a partir de uma posi��o inicial
+void createMazeRoute(char mat[LINES][COLUMS])
+{
+    int xCel = 1, yCel = 1;     //posi��o inicial
+    mat[xCel][yCel] = ' ';      //caminho aberto
+
+    //vetor de dire��es {NORTE, SUL, LESTE, OESTE}
+    int vet[4] = {0, 1, 2, 3};
+    createPaths(xCel, yCel, mat, vet);
+}
+
+//embaralha o vetor de dire��es
+void shuffling(int vet[4])
+{
+    srand(time(NULL));
+    int i, j, w, aux;
+    for(i = 0; i < 4; i++)
+    {
+        for(j = 0; j < 4; j++)
+        {
+            w = rand() % 4;
+            aux = vet[w];
+            vet[w] = vet[j];
+            vet[j] = aux;
+        }
+    }
+}
+
+//gera os caminhos no labirinto
+void createPaths(int x, int y, char mat[LINES][COLUMS], int vet[4])
+{
+    shuffling(vet);
+
+    int i;
+    for(i = 0; i < 4; i++)
+    {
+        switch(vet[i])
+        {
+        case 0: //cima
+            if((x - 2) > 0)
+            {
+                if(mat[x - 2][y] == '*')
+                {
+                    mat[x - 2][y] = ' ';
+                    mat[x - 1][y] = ' ';
+                    createPaths(x - 2, y, mat, vet);
+                }
+            }
+            else
+                continue;
+            break;
+        case 1: //baixo
+            if((x + 2) < (LINES - 1))
+            {
+                if(mat[x + 2][y] == '*')
+                {
+                    mat[x + 2][y] = ' ';
+                    mat[x + 1][y] = ' ';
+                    createPaths(x + 2, y, mat, vet);
+                }
+            }
+            else
+                continue;
+            break;
+        case 2: //esquerda
+            if((y - 2) > 0)
+            {
+                if(mat[x][y - 2] == '*')
+                {
+                    mat[x][y - 2] = ' ';
+                    mat[x][y - 1] = ' ';
+                    createPaths(x, y - 2, mat, vet);
+                }
+            }
+            else
+                continue;
+            break;
+        case 3: //direita
+            if((y + 2) < (COLUMS - 1))
+            {
+                if(mat[x][y + 2] == '*')
+                {
+                    mat[x][y + 2] = ' ';
+                    mat[x][y + 1] = ' ';
+                    createPaths(x, y + 2, mat, vet);
+                }
+            }
+            else
+                continue;
+            break;
+        }
+    }
+}
+//    para o caminho ser checado , o ponto deve ter todos os possiveis caminhos laterais checados , e ai o ponto eh checado. , se for checado -> gg , labirinto errado.
+//    vetor -> 0 norte 1 sul 2 leste 3 oeste;
+//    ve os pontos e faz o vetor;
+//    se for 0 em tudo returna 0 -> labirinto falhou (tudo checado);
+//    se for 1 -> precisa checar nessa direcao
+/// 0 parado , 1 esquerda , 2 direita , 3 cima , 4 baixo
+void realizaMovimento (int direcao, Personagem* player,char maze[LINES][COLUMS]){
+    int xf,yf;
+    float x,y;
+    x = (float)player->x /20;
+    y = (float)player->y /20;
+    xf=x;
+    yf=y;
+    printf("%f %f %d %d\n", x,y,xf,yf);
+    switch (direcao){
+    case 0 :
+        player->anima1 = 0;
+        player->anima2 = 0;
+        break;
+    case 1 :
+        player->anima1 = 1;
+        if (maze[yf][xf] == ' ')
+            player->x--;
+        break;
+    case 2 :
+        player->anima1 = 2;
+        if (maze[yf][xf+1] == ' ')
+            player->x++;
+        break;
+    case 3 :
+        player->anima1 = 3;
+        if (maze[yf][xf] == ' ')
+            player->y--;
+        break;
+    case 4 :
+        player->anima1 = 4;
+        if (maze[yf+1][xf] == ' ')
+            player->y++;
+        break;
+    }
+
+}
+
+
+
+int main()
+{
+    int i,j;
+    char maze[LINES][COLUMS];
+    //parede: *
+    //caminho: ' '
+    for(i = 0; i < LINES; i++)
+    {
+        for(j = 0; j < COLUMS; j++)
+        {
+            maze[i][j] = '*';
+        }
+    }
+    createMazeRoute(maze);
+    printMaze(maze);
+
+    /// monolito de declaracoes de variaveis , starts do allegro e starts de structs.
+
+    ///inicializa allegro
+    allegro_init();
+    set_color_depth(32);
+    set_gfx_mode(GFX_AUTODETECT_WINDOWED, 1280, 960, 0, 0); /// se tiver em windowed mult de 320,240
+    install_keyboard();
+    install_mouse();
+    show_mouse(screen);
+    install_timer();
+
+    ///inicializa timers
+    LOCK_FUNCTION(ticks_counter);
+    LOCK_VARIABLE(ticks);
+    install_int_ex(ticks_counter, BPS_TO_TIMER(60)); //incrementa 60 vezes em um segundo
+    LOCK_FUNCTION(frame_upadate_counter);
+    LOCK_VARIABLE(frame_update);
+    install_int_ex(frame_upadate_counter, MSEC_TO_TIMER(100));
+
+
+    ///inicializa as texturas
+    BITMAP *parede = load_bmp("texture/wall.bmp", NULL);
+    BITMAP *chao = load_bmp("texture/path.bmp", NULL);
+    BITMAP *saida = load_bmp ("texture/door.bmp", NULL);
+    BITMAP *player = load_bitmap("texture/complete_player.bmp", NULL);
+    Personagem* jogador = (Personagem*) calloc(sizeof(Personagem),1);
+    int frame_size_h = (player->h)/4;
+    int frame_size_w = (player->w)/4;
+
+    ///buffers
+    BITMAP *buffer = create_bitmap(LINES*20,COLUMS*20);
+    BITMAP *labirinto = create_bitmap(LINES*20,COLUMS*20);
+
+    ///salva o labirinto uma vez antes de executar
+    for (i=0;i<LINES;i++){
+        for (j=0;j<COLUMS;j++){
+            if (maze[i][j] == '*')
+                draw_sprite(labirinto,parede,j*20,i*20);
+            else if (maze[i][j] == 's')
+                draw_sprite (labirinto,saida,j*20,i*20);
+            else if (maze [i][j] == ' ')
+                draw_sprite(labirinto,chao,j*20,i*20);
+        }
+    }
+    draw_sprite (buffer,labirinto,0,0);
+    jogador->x = 20;
+    jogador->y = 20;
+    while(!key[KEY_ESC]){
+        while(ticks>0){
+            if(key[KEY_UP])
+                realizaMovimento(3,jogador,maze);
+            if(key[KEY_DOWN])
+                realizaMovimento(4,jogador,maze);
+            if(key[KEY_LEFT])
+                realizaMovimento(1,jogador,maze);
+            if(key[KEY_RIGHT])
+                realizaMovimento(2,jogador,maze);
+//            else
+//                realizaMovimento(0,jogador,maze);
+            draw_sprite (screen,buffer,0,0);
+            clear (buffer);
+            draw_sprite(buffer,labirinto,0,0);
+
+            ticks--;
+        }
+
+    }
+    return 0;
+}
+END_OF_MAIN()
