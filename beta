@@ -1,0 +1,730 @@
+#include <allegro.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <allegro/mouse.h>
+#define LINES 30
+#define COLUMS 30
+///timer para controlar tempo de atualização da cena
+volatile int ticks = 0;
+typedef struct bomba {
+    int x;
+    int y;
+    struct bomba *next;
+    BITMAP* explosao;
+    BITMAP* normal;
+}Bomba;
+typedef struct monster {
+    int vidas;
+    int x;
+    int y;
+    float rx;
+    float ry;
+    float vx;
+    float vy;
+    BITMAP* bm;
+    int dir;
+    int tipo;
+    int isVivo;
+}Monstro;
+typedef struct node {
+    int i; // coords x e y da imagem , como contadores
+    int j;
+    struct node* next;
+}Queue;
+
+Queue* create_queue () {
+   return NULL;
+}
+
+void free_queue (Queue *q) {
+   while (q != NULL) {
+      Queue *aux = q->next; /*guarda ref. p/ prox.*/
+      free (q); /*libera a memÃ³ria.*/
+      q = aux; /*faz lista apontar p/ o prox. elem.*/
+   }
+}
+
+Queue* enqueue (Queue *q, int i,int j) {
+   /*Criando novo elemento: */
+   Queue *n = (Queue *)malloc(sizeof(Queue));
+   n->i = i;
+   n->j = j;
+   n->next = NULL; /*Ãºltimo elemento da lista nÃ£o tem prÃ³ximo.*/
+   /*Localizando a cauda da lista encadeda: */
+   Queue *aux, *end = NULL;
+   for (aux = q; aux != NULL; aux = aux->next) {
+      end = aux;
+   }
+   /*Se a lista nÃ£o exister vazia a cabeÃ§a da lista se mantÃ©m.*/
+   if (end != NULL) {
+      end->next = n; /*conectando o novo elemento na cauda da lista.*/
+      return q; /*retorne a cabeÃ§a da lista encadeada.*/
+   }
+   else {
+      return n; /*A lista estava vazia, logo n Ã© a cabeÃ§a da lista.*/
+   }
+}
+
+Queue* dequeue (Queue *q,int* i,int* j) {
+   if (!Empty(q)) {
+      Queue *aux = q->next; /*Guarda endereÃ§o do prÃ³ximo elemento.*/
+      *i = q->i; // associa os valores que foram retirados a variaveis passada por referencia , pois precisamos destes valores
+      *j = q->j;
+      free(q); /*Removendo nodo da lista.*/
+      return aux; /*Nova cabeÃ§a da lista!*/
+   }
+   else {
+      return NULL; /*RemoÃ§Ã£o em uma lista vazia.*/
+   }
+}
+
+typedef struct evento {
+    struct evento* next;
+    int tipo;
+    int valor;
+    int indice;
+    int direcao;
+    Monstro* monstro;
+
+}Evento;
+
+Evento* criarEvento(){
+    return NULL;
+}
+
+Evento* inserirEvento(Evento* fila,int indice,int tipo,int valor,int direcao,Monstro* monstro){
+    Evento* novo = (Evento*) malloc(sizeof(Evento));
+    novo->tipo = tipo;
+    novo->valor = valor;
+    novo->indice = indice;
+    novo->next = fila;
+    novo->direcao = direcao;
+    novo->monstro = monstro;
+    return novo;
+}
+int EmptyEvento (Evento* fila){
+    return (fila == NULL);
+}
+int Empty (Queue *q) {
+   return (q == NULL);
+}
+
+void ticks_counter()
+{
+    ticks++;
+}
+END_OF_FUNCTION(tick_counter)
+
+///timer que controla a troca de frame dos sprites
+volatile int frame_update = 0;
+
+void frame_upadate_counter()
+{
+    frame_update++;
+}
+END_OF_FUNCTION(frame_upadate_counter)
+
+    typedef struct personagem {
+        float x;
+        float y;
+        int armadilhas;
+        int isKilled;
+        float vx;
+        float vy;
+    }Personagem;
+
+//exibe a matriz que representa o labirinto
+void printMaze(char mat[LINES][COLUMS])
+{
+    int i, j;
+
+    for(i = 0; i < LINES; i++)
+    {
+        for(j = 0; j < COLUMS; j++)
+        {
+            printf("%c", mat[i][j]);
+        }
+        printf("\n");
+    }
+}
+
+//Gera caminhos no labirinto a partir de uma posi��o inicial
+void createMazeRoute(char mat[LINES][COLUMS])
+{
+    int xCel = 1, yCel = 1;     //posi��o inicial
+    mat[xCel][yCel] = ' ';      //caminho aberto
+
+    //vetor de dire��es {NORTE, SUL, LESTE, OESTE}
+    int vet[4] = {0, 1, 2, 3};
+    createPaths(xCel, yCel, mat, vet);
+}
+
+Monstro** criaMonstros (char maze[LINES][COLUMS]){
+    Monstro** novo = (Monstro**) malloc(sizeof(Monstro*)*5);
+    srand(time(NULL));
+    for (int i=0;i<5;i++){
+        novo[i] = (Monstro*) malloc(sizeof(Monstro));
+    }
+    int i,j,k;
+    for (k=0;k<5;k++){
+        i = rand() % LINES;
+        j = rand() % COLUMS;
+        novo[k]->tipo = 1;
+        if (maze[i][j] != ' ')
+            k--;
+        else{
+            novo[k]->x = i;
+            novo[k]->y = j;
+        }
+
+    }
+    return novo;
+
+}
+Bomba* criarBomba (){
+    return NULL;
+}
+Bomba* inserirBomba (Bomba* lista,int x , int y){
+    Bomba* novo = (Bomba*) malloc(sizeof(Bomba));
+    novo->x=x;
+    novo->y=y;
+    novo->next=lista;
+
+}
+//embaralha o vetor de dire��es
+void shuffling(int vet[4])
+{
+    srand(time(NULL));
+    int i, j, w, aux;
+    for(i = 0; i < 4; i++)
+    {
+        for(j = 0; j < 4; j++)
+        {
+            w = 3 % 4;
+            aux = vet[w];
+            vet[w] = vet[j];
+            vet[j] = aux;
+        }
+    }
+}
+
+//gera os caminhos no labirinto
+void createPaths(int x, int y, char mat[LINES][COLUMS], int vet[4])
+{
+    shuffling(vet);
+
+    int i;
+    for(i = 0; i < 4; i++)
+    {
+        switch(vet[i])
+        {
+        case 0: //cima
+            if((x - 2) > 0)
+            {
+                if(mat[x - 2][y] == '*')
+                {
+                    mat[x - 2][y] = ' ';
+                    mat[x - 1][y] = ' ';
+                    createPaths(x - 2, y, mat, vet);
+                }
+            }
+            else
+                continue;
+            break;
+        case 1: //baixo
+            if((x + 2) < (LINES - 1))
+            {
+                if(mat[x + 2][y] == '*')
+                {
+                    mat[x + 2][y] = ' ';
+                    mat[x + 1][y] = ' ';
+                    createPaths(x + 2, y, mat, vet);
+                }
+            }
+            else
+                continue;
+            break;
+        case 2: //esquerda
+            if((y - 2) > 0)
+            {
+                if(mat[x][y - 2] == '*')
+                {
+                    mat[x][y - 2] = ' ';
+                    mat[x][y - 1] = ' ';
+                    createPaths(x, y - 2, mat, vet);
+                }
+            }
+            else
+                continue;
+            break;
+        case 3: //direita
+            if((y + 2) < (COLUMS - 1))
+            {
+                if(mat[x][y + 2] == '*')
+                {
+                    mat[x][y + 2] = ' ';
+                    mat[x][y + 1] = ' ';
+                    createPaths(x, y + 2, mat, vet);
+                }
+            }
+            else
+                continue;
+            break;
+        }
+    }
+}
+
+/// 0 parado , 1 esquerda , 2 direita , 3 cima , 4 baixo
+void moveLogico (int onq,Personagem* player,char matriz[LINES][COLUMS]){
+
+
+    int x,y;
+    x = (int) player->x/20;
+    y = (int) player->y/20;
+    switch (onq){
+case 4:
+    if (matriz[y][x+1] != '*'){
+        matriz[y][x] = ' ';
+        matriz[y][x+1] = 'p';
+        player->vx = 0.5;
+
+    }
+    break;
+case 1:
+    if (matriz[y-1][x] != '*'){
+        matriz[y][x] = ' ';
+        matriz[y-1][x] = 'p';
+        player->vy = -0.5;
+
+    }
+    break;
+case 2:
+    if (matriz[y+1][x] != '*'){
+        matriz[y][x] = ' ';
+        matriz[y+1][x] = 'p';
+        player->vy = 0.5;
+    }
+    break;
+
+
+case 3:
+    if (matriz[y][x-1] != '*'){
+        matriz[y][x] = ' ';
+        matriz[y][x-1] = 'p';
+        player->vx = -0.5;
+
+    }
+    break;
+}
+}
+
+int checaCaminho (char mat[LINES][COLUMS], int x,int y,int dir,int* yu){ /// resolvedor de labirintos , mostra uma das saidas visualmente (pela matriz) se encontrar um caminh
+    int vetor [5] = {0,0,0,0,0}; /// vetor de direcao , comeca numa posicao zerada e invalida (pos 5)
+    int i,cont=0,max=0;                   /// o vetor de direcao tem informacoes a respeito de todos os lados de uma dada celular da matriz
+    if (x >=LINES-1 || y>= COLUMS-1)
+        return 0; /// se estourar , returna 0
+    if (mat[x][y] == 'p' || mat[x-1][y] == 'p' || mat[x+1][y] == 'p' || mat[x][y-1] == 'p' || mat[x][y+1] == 'p'){
+        mat[x][y] = 'v';
+        return 2;
+        } /// se encontrar a saida , entao returna 2;
+    if (mat[x-1][y] == ' ') /// se for espaco  em qualquer uma direcao o vetor de direcao naquela direcao vale 1.
+        vetor[0] = 1;
+    if (mat[x+1][y] == ' ')
+        vetor[1] = 1;
+    if (mat[x][y-1] == ' ')
+        vetor[2] = 1;
+    if (mat[x][y+1] == ' ')
+        vetor[3] = 1;
+    //vetor [dir] = 0;
+    if (vetor[0] == 1){
+        if (mat[x][y] != 'p')
+            mat[x][y] = 'a';
+        *yu ++;
+        vetor[0] = checaCaminho(mat,x-1,y,1,&yu);
+        if (vetor[0] == 2)
+            if (mat[x][y] != 'p')
+                mat[x][y] = 'v';
+    }
+    if (vetor[1] == 1){
+        if (mat[x][y] != 'p')
+            mat[x][y] = 'a';
+        *yu ++;
+        vetor[1] =  checaCaminho(mat,x+1,y,0,&yu);
+        if (vetor[1] == 2)
+            if (mat[x][y] != 'p')
+                mat[x][y] = 'v';
+    }
+    if (vetor[2] == 1){
+        if (mat[x][y] != 'p')
+            mat[x][y] = 'a';
+        *yu ++;
+        vetor[2] =  checaCaminho(mat,x,y-1,3,&yu);
+        if (vetor[2] == 2)
+            if (mat[x][y] != 'p')
+                mat[x][y] = 'v';
+    }
+    if (vetor[3] == 1){
+        if (mat[x][y] != 'p')
+            mat[x][y] = 'a';
+        *yu ++;
+        vetor[3] =  checaCaminho(mat,x,y+1,2,&yu);
+        if (vetor[3] == 2)
+            if (mat[x][y] != 'p')
+                mat[x][y] = 'v';
+    }
+    for (i=0;i<4;i++)
+        cont+= vetor[i]; ///se a soma dos vetores for 0 , o labirinto eh invalido
+    if (cont == 0) /// valida a celula como com saida ou sem.
+        return 0;
+    else if (cont >= 2){
+        if (mat[x][y] != 'p')
+            mat[x][y] = 'v';
+        return 2;
+    }
+    else
+        return 0;
+    } /// para a primeira celular ser validada todas as outras tem que ser validadas.
+int conta_nos (Bomba* lista) {
+   int elementos = 0;
+   Bomba *aux;
+   for (aux = lista; aux != NULL; aux = aux->next) {
+      elementos++;
+   }
+   return elementos;
+}
+int compConexo (char mat[LINES][COLUMS], int x,int y, int* dir){
+    Queue* fila = create_queue();
+    int iaux,jaux,contador=0;
+    if (mat[y-1][x] == 'v' || mat[y-1][x] == 'p'){
+        fila = enqueue(fila,y-1,x);
+        *dir = 1;
+    }
+    if (mat[y+1][x] == 'v' || mat[y+1][x] == 'p'){
+        fila = enqueue(fila,y+1,x);
+        *dir = 2;
+    }
+    if (mat[y][x-1] == 'v' || mat[y][x-1] == 'p'){
+        fila = enqueue(fila,y,x-1);
+        *dir = 3;
+    }
+    if (mat[y][x+1] == 'v' || mat[y][x+1] == 'p'){
+        fila = enqueue(fila,y,x+1);
+        *dir = 4;
+    }
+    while (!Empty(fila)){
+        fila = dequeue(fila,&jaux,&iaux);
+        contador++;
+        mat[jaux][iaux] = ' ';
+        if (mat[jaux-1][iaux] == 'v'){
+            mat[jaux-1][iaux] = ' ';
+            fila = enqueue(fila,jaux-1,iaux);
+        }
+        if (mat[jaux+1][iaux] == 'v'){
+            mat[jaux+1][iaux] = ' ';
+            fila = enqueue(fila,jaux+1,iaux);
+        }
+        if (mat[jaux][iaux-1] == 'v'){
+            mat[jaux][iaux-1] = ' ';
+            fila = enqueue(fila,jaux,iaux-1);
+        }
+        if (mat[jaux][iaux+1] == 'v'){
+            mat[jaux][iaux+1] = ' ';
+            fila = enqueue(fila,jaux,iaux+1);
+        }
+    }
+    return contador;
+
+}
+void limpaCaminho (char maze[LINES][COLUMS]){
+    int i,j;
+    for (i=0;i<LINES;i++){
+        for (j=0;j<COLUMS;j++){
+            if (maze[i][j] == 'v')
+                maze[i][j] = ' ';
+            if (maze[i][j] == 'a')
+                maze[i][j] = ' ';
+            if (maze[i][j] == 'p')
+                maze[i][j] = ' ';
+        }
+    }
+
+}
+Evento* EventQueuer (Monstro* teste,Evento* lista,Personagem* player,char maze[LINES][COLUMS]){
+    int xp,yp,xm,ym,dist=999,dir=0,fk;
+    xp = (int) player->x/20;
+    yp = (int) player->y/20;
+    xm = (int) teste->x;
+    ym = (int) teste->y;
+    maze[yp][xp] = 'p';
+    checaCaminho(maze,xm,ym,5,fk);
+    //printMaze(maze);
+    dist = compConexo(maze,ym,xm,&dir);
+    //printMaze(maze);
+    printf("dist %d\n", dist);
+    limpaCaminho(maze);
+    if (dist <= 4+teste->tipo*4){
+        lista = inserirEvento(lista,0,1,1,dir,teste);
+    }
+    if (dist == 0 || (teste->tipo == 1 && dist == 1)){
+        player->isKilled = 1;
+        printf("morreu");
+    }
+    return lista;
+}
+void moveMonstro (Monstro* monstro,int dir,char maze[LINES][COLUMS]){
+    if (dir == 3){
+        monstro->y-=1+monstro->tipo;
+        monstro->vy = -0.5 - monstro->tipo*0.5;
+        monstro->dir = 1;
+        }
+    if (dir == 4){
+        monstro->y+=1+monstro->tipo;
+        monstro->vy = 0.5 + monstro->tipo*0.5;
+        monstro->dir = 2;
+        }
+    if (dir == 1){
+        monstro->x-=1+monstro->tipo;
+        monstro->vx = -0.5 - monstro->tipo*0.5;
+        monstro->dir = 3;
+        }
+    if (dir == 2){
+        monstro->x+=1+monstro->tipo;
+        monstro->vx = 0.5 + monstro->tipo*0.5;
+        monstro->dir = 0;
+        }
+
+}
+int face (Evento* lista){
+    int x;
+    x=lista->direcao;
+    printf("x = %d", x);
+    if (x==1)
+        return 3;
+}
+Evento* movProcessor (Evento* lista,char maze[LINES][COLUMS]){
+    Evento* aux;
+    for (aux = lista ; aux != NULL;aux = aux->next){
+        if (aux->tipo == 1){
+            moveMonstro(aux->monstro,aux->direcao,maze);
+        }
+    }
+    free(lista);
+    return NULL;
+
+}
+void setaDraw (Monstro** monstros){
+        int i;
+        for (i=0;i<5;i++){
+            monstros[i]->rx = monstros[i]->x *20;
+            monstros[i]->ry = monstros[i]->y *20;
+        }
+    }
+int main()
+{
+    int i,j,anima=0,mov=0,onq,zero=0,moveu=0,jm=0,colocou=0;
+    char maze[LINES][COLUMS];
+    //parede: *
+    //caminho: ' '
+    for(i = 0; i < LINES; i++)
+    {
+        for(j = 0; j < COLUMS; j++)
+        {
+            maze[i][j] = '*';
+        }
+    }
+    createMazeRoute(maze);
+    printMaze(maze);
+
+    /// monolito de declaracoes de variaveis , starts do allegro e starts de structs.
+
+    ///inicializa allegro
+    allegro_init();
+    set_color_depth(32);
+    set_gfx_mode(GFX_AUTODETECT_WINDOWED, 800, 600, 0, 0); /// se tiver em windowed mult de 320,240
+    install_keyboard();
+    install_mouse();
+    show_mouse(screen);
+    install_timer();
+
+    ///inicializa timers
+    LOCK_FUNCTION(ticks_counter);
+    LOCK_VARIABLE(ticks);
+    install_int_ex(ticks_counter, BPS_TO_TIMER(60)); //incrementa 60 vezes em um segundo
+    LOCK_FUNCTION(frame_upadate_counter);
+    LOCK_VARIABLE(frame_update);
+    install_int_ex(frame_upadate_counter, MSEC_TO_TIMER(100));
+
+
+    ///inicializa as texturas
+    BITMAP *parede = load_bmp("texture/wall.bmp", NULL);
+    BITMAP *chao = load_bmp("texture/path.bmp", NULL);
+    BITMAP *saida = load_bmp ("texture/door.bmp", NULL);
+    BITMAP *player = load_bitmap("texture/player.bmp", NULL);
+    BITMAP *monstroa = load_bitmap("texture/monster_A.bmp",NULL);
+    BITMAP *monstrob = load_bitmap("texture/monster_B.bmp",NULL);
+    BITMAP *explosao = load_bitmap("texture/bomba.bmp", NULL);
+    BITMAP *normal = load_bitmap ("texture/trap.bmp", NULL);
+
+    Personagem* jogador = (Personagem*) calloc(sizeof(Personagem),1);
+    int frame_size_h = (player->h)/4;
+    int frame_size_w = (player->w)/4;
+    jogador->armadilhas = 3;
+    jogador->isKilled = 0;
+
+    ///buffers
+    BITMAP *buffer = create_bitmap(LINES*20,COLUMS*20);
+    BITMAP *labirinto = create_bitmap(LINES*20,COLUMS*20);
+
+    ///salva o labirinto uma vez antes de executar
+    for (i=0;i<LINES;i++){
+        for (j=0;j<COLUMS;j++){
+            if (maze[i][j] == '*')
+                draw_sprite(labirinto,parede,j*20,i*20);
+            else if (maze[i][j] == 's')
+                draw_sprite (labirinto,saida,j*20,i*20);
+            else if (maze [i][j] == ' ')
+                draw_sprite(labirinto,chao,j*20,i*20);
+        }
+    }
+    draw_sprite (buffer,labirinto,0,0);
+    jogador->x = 20;
+    jogador->y = 240;
+    jogador->isKilled = 0;
+    Evento* listadeEventos=criarEvento();
+    maze[(int)jogador->y/20][(int)jogador->x/20] = 'p';
+    masked_blit (player, buffer, 0 * frame_size_w, 0 * frame_size_h, jogador->x, jogador->y, frame_size_w, frame_size_h);
+    draw_sprite (screen,buffer,0,0);
+    printMaze(maze);
+    Monstro* teste = (Monstro*) malloc(sizeof(Monstro));
+    teste->tipo=0;
+    teste->x = 27;
+    teste->y = 1;
+    Monstro** monstros = criaMonstros(maze);
+    monstros[0]->y = 1;
+    monstros[0]->x = 27;
+    setaDraw(monstros);
+    Bomba* listadeBomba = criarBomba();
+    for (int k =0 ;k<5;k++){
+        monstros[k]->bm = monstroa;
+    }
+    while(!key[KEY_ESC]){
+        while(ticks>0 && !jogador->isKilled){
+            if (mov == 0){
+                anima++;
+                i=0;
+                if (key[KEY_SPACE] && colocou == 0){
+                    listadeBomba=inserirBomba(listadeBomba,(int)jogador->x/20,(int)jogador->y/20);
+                    colocou=1;
+                    printf("%d", conta_nos(listadeBomba));
+                }
+                if (key[KEY_UP]){
+                    onq=1;
+                    moveLogico (onq,jogador,maze);
+                    mov=2;
+                    i=3;
+                    anima=0;
+                }
+                if (key[KEY_DOWN]){
+                    onq= 2;
+                    moveLogico (onq,jogador,maze);
+                    mov=2;
+                    i=0;
+                    anima=0;
+                }
+                if (key[KEY_LEFT]){
+                    onq = 3;
+                    moveLogico (onq,jogador,maze);
+                    mov=2;
+                    i=1;
+                    anima=0;
+                }
+                if (key[KEY_RIGHT]){
+                    onq=4;
+                    moveLogico(onq,jogador,maze);
+                    mov=2;
+                    i=2;
+                    anima=0;
+                }
+                if (anima == 41){
+                    anima=0;
+                    mov=2;
+                    moveu=1;
+                }
+
+
+            }
+            else{
+                anima++;
+                if (!moveu)
+                    j = frame_update % 4;
+                else
+                    j=0;
+                if (anima == 41){
+                    mov =0;
+                    anima = 0;
+                    onq=0;
+                    jogador->vx=0;
+                    jogador->vy=0;
+                    mov=0;
+                    moveu=0;
+                    for (int k=0;k<5;k++){
+                    monstros[k]->vx=0;
+                    monstros[k]->vy=0;
+                    colocou=0;
+                    }
+                    jm=0;
+                }
+                clear(buffer);
+                draw_sprite (buffer,labirinto,0,0);
+                jogador->x+=jogador->vx;
+                jogador->y+=jogador->vy;
+                for (int k=0;k<5;k++){
+                    monstros[k]->rx+=monstros[k]->vx;
+                    monstros[k]->ry+=monstros[k]->vy;
+                }
+                masked_blit (player, buffer, j * frame_size_w, i * frame_size_w, jogador->x, jogador->y, frame_size_w, frame_size_h);
+                for (Bomba* aux = listadeBomba ; aux != NULL ;aux=aux->next){
+                    draw_sprite(buffer,normal,aux->x*20,aux->y*20);
+                }
+                for (int k =0 ;k<5;k++){
+                    if (monstros[k]->vx != 0 || monstros[k]->vy != 0)
+                        jm= j;
+                    else
+                        jm =0;
+                    //printf("%.2f %.2f\n", monstros[k]->rx,monstros[k]->ry);
+                    masked_blit(monstros[k]->bm,buffer,jm * frame_size_w,monstros[k]->dir * frame_size_w,monstros[k]->ry,monstros[k]->rx,frame_size_w,frame_size_h);
+                }
+
+                draw_sprite(screen,buffer,0,0);
+
+
+
+
+            }
+            if (mov == 2){
+                for (int k =0;k<5;k++){
+                    listadeEventos = EventQueuer(monstros[k],listadeEventos,jogador,maze);
+                }
+                printf("\n");
+                mov = 1;
+                //printf("-> %d ", conta_nos(listadeEventos));
+                if (!EmptyEvento(listadeEventos)){
+//                    moveMonstro(monstros[0],listadeEventos->direcao,maze);
+                    //printf("oi %d", listadeEventos->monstro->x);
+                   listadeEventos = movProcessor (listadeEventos,maze);
+
+
+                }
+
+            }
+
+            //ticks--;
+
+        }
+        printf("u fking dead");
+
+    }
+    return 0;
+}
+END_OF_MAIN()
