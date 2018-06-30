@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <allegro.h>
 #define LINHAS 30
 #define COLUNAS 40
 
@@ -12,17 +13,26 @@ typedef struct {
 	int x;
 	int y;
 	int tipo;
-}Inimigo;
+	int isVivo;
+}Monstro;
 
-Inimigo * criaInimigos(){
-    return (Inimigo*)malloc(sizeof(Inimigo) * 5);
+typedef struct bomba {
+    int x;
+    int y;
+    struct bomba *next;
+    BITMAP* explosao;
+    BITMAP* normal;
+}Bomba;
+
+Monstro * criaInimigos(){
+    return (Monstro*)malloc(sizeof(Monstro) * 5);
 }
 
 Personagem * criaPlayer(){
     return (Personagem*) malloc(sizeof(Personagem));
 }
 
-char **leituraArquivo(Personagem* player, Inimigo* inimigos){ //Lê o arquivo, passando as coordenadas do player e inimigos por parametro. Também cria o labirinto.
+char **leituraArquivo(Personagem* player, Monstro* monstros){ //Lê o arquivo, passando as coordenadas do player e inimigos por parametro. Também cria o labirinto.
 
 	int i, j, k = 0,aux,xsaida, ysaida;
 
@@ -51,9 +61,10 @@ char **leituraArquivo(Personagem* player, Inimigo* inimigos){ //Lê o arquivo, p
 			continue;
 		}
 		if (k == 1) {
-			inimigos[0].x = i;
-			inimigos[0].y = j;
-			inimigos[0].tipo = 0;
+			monstros[0].x = i;
+			monstros[0].y = j;
+			monstros[0].tipo = 0;
+			monstros[i].isVivo = 1;
 			k++;
 			continue;
 		}
@@ -63,9 +74,10 @@ char **leituraArquivo(Personagem* player, Inimigo* inimigos){ //Lê o arquivo, p
 			k++;
 			break;
 		}
-		inimigos[k-1].x = i;
-		inimigos[k-1].y = j;
-		inimigos[k-1].tipo = 1;
+		monstros[k-1].x = i;
+		monstros[k-1].y = j;
+		monstros[k-1].tipo = 1;
+		monstros[k-1].isVivo = 1;
 		k++;
 	}
 
@@ -79,16 +91,22 @@ char **leituraArquivo(Personagem* player, Inimigo* inimigos){ //Lê o arquivo, p
 	return maze;
 }
 
-int main() {
+int detectaBomba(Bomba* bombas,Monstro* monstros){
+    if((bombas->x == monstros->x)&&(bombas->y == monstros->y))
+        return 1;
+    else return 0;
+}
+
+int main(){
 	int i, j;
-	Inimigo *inimigos = criaInimigos();
+	Monstro *monstros = criaInimigos();
 	Personagem *player = criaPlayer();
-	char **maze = leituraArquivo(player, inimigos);
+	char **maze = leituraArquivo(player, monstros);
 
 	printf("player: %d %d\n", player->x, player->y);
 	for (i = 0; i<5; i++)
 	{
-		printf("posicao do inimigo %d: %d %d\n",i,inimigos[i].x,inimigos[i].y);
+		printf("posicao do inimigo %d: %d %d\n",i,monstros[i].x,monstros[i].y);
 	}
 	for (i = 0; i<LINHAS; i++)
 		for (j = 0; j<COLUNAS; j++)
@@ -100,7 +118,7 @@ int main() {
             printf("%c",maze[i][j]);
         printf("\n");
     }
-    free(inimigos);
+    free(monstros);
     free(maze);
 	return 0;
 }
