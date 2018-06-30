@@ -14,13 +14,17 @@ typedef struct {
 	int tipo;
 }Inimigo;
 
-char **leituraArquivo(Personagem* player, Inimigo* inimigos) {
+Inimigo * criaInimigos(){
+    return (Inimigo*)malloc(sizeof(Inimigo) * 5);
+}
 
-	int i, j, k = 0;
-	char aux;
-	inimigos = (Inimigo**)malloc(sizeof(Inimigo*) * 5);
+Personagem * criaPlayer(){
+    return (Personagem*) malloc(sizeof(Personagem));
+}
 
+char **leituraArquivo(Personagem* player, Inimigo* inimigos){ //Lê o arquivo, passando as coordenadas do player e inimigos por parametro. Também cria o labirinto.
 
+	int i, j, k = 0,aux,xsaida, ysaida;
 
 	char **maze = (char**)malloc(sizeof(char*) * LINHAS);
 	for (i = 0; i<LINHAS; i++) {
@@ -31,8 +35,8 @@ char **leituraArquivo(Personagem* player, Inimigo* inimigos) {
         for(j=0;j<COLUNAS;j++)
         maze[i][j]=' ';
 
-	FILE *arquivo = fopen("arquivo.txt", "r");
-	if (arquivo == NULL) {
+	FILE *arquivo = fopen("maze_H_1.txt", "r");
+	if (arquivo == NULL){
 		printf("Arquivo nao encontrado\n");
 		return 0;
 	}
@@ -54,7 +58,8 @@ char **leituraArquivo(Personagem* player, Inimigo* inimigos) {
 			continue;
 		}
 		if (k == 6) {
-			maze[i][j] = 's';
+        xsaida = i;
+        ysaida = j;
 			k++;
 			break;
 		}
@@ -64,34 +69,38 @@ char **leituraArquivo(Personagem* player, Inimigo* inimigos) {
 		k++;
 	}
 
-    char line [10];
-	while (fgets(line, 10, arquivo) != NULL){
-            fscanf(arquivo,"%d %d",&i,&j);
-            for (k=0;k<10;k++)
-                if(line[k]=='*')
-                maze[i][j]='*';
+	while (fscanf(arquivo,"%d %d %d",&i,&j,&aux)!=EOF){
+        if(aux==0)
+            maze[i][j] = ' ';
+        else maze[i][j] = '*';
 	}
-
+    maze[xsaida][ysaida] = 's';
 	fclose(arquivo);
-
-
 	return maze;
 }
 
 int main() {
 	int i, j;
-	Inimigo *inimigos;
-	Personagem player;
-	char **maze = leituraArquivo(&player, inimigos);
+	Inimigo *inimigos = criaInimigos();
+	Personagem *player = criaPlayer();
+	char **maze = leituraArquivo(player, inimigos);
 
-	printf("%d %d\n", player.x, player.y);
+	printf("player: %d %d\n", player->x, player->y);
 	for (i = 0; i<5; i++)
 	{
-		printf("%d %d\n", &(inimigos[i]).x,&(inimigos[i].y));
+		printf("posicao do inimigo %d: %d %d\n",i,inimigos[i].x,inimigos[i].y);
 	}
 	for (i = 0; i<LINHAS; i++)
 		for (j = 0; j<COLUNAS; j++)
 			if (maze[i][j] == 's')
-				printf("%d %d", i, j);
+				printf("coords de saida %d %d\n", i, j);
+
+    for(i=0;i<30;i++){
+        for(j=0;j<40;j++)
+            printf("%c",maze[i][j]);
+        printf("\n");
+    }
+    free(inimigos);
+    free(maze);
 	return 0;
 }
